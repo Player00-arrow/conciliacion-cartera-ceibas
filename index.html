@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gestión de Cartera</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  color-scheme:light;
+  --brand:#0a4a74; --brand-2:#0e6aa0; --brand-ink:#ffffff; --accent:#1baf7a;
+  --page:#f4f6f8; --surface:#ffffff; --surface-2:#f8fafb;
+  --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781;
+  --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,.10);
+  --s1:#2a78d6; --s2:#eb6834;
+  --good:#0ca30c; --good-text:#006300; --warn:#fab219; --serious:#ec835a; --crit:#d03b3b;
+  --seq:#86b6ef,#5598e7,#3987e5,#2a78d6,#256abf,#1c5cab,#184f95,#0d366b;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --brand:#0b3a5a; --brand-2:#13598a; --page:#0d0d0d; --surface:#1a1a19; --surface-2:#222221;
+    --ink:#f0efec; --ink-2:#c3c2b7; --muted:#898781; --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
+    --s1:#3987e5; --s2:#d95926; --good-text:#0ca30c;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --brand:#0b3a5a; --brand-2:#13598a; --page:#0d0d0d; --surface:#1a1a19; --surface-2:#222221;
+  --ink:#f0efec; --ink-2:#c3c2b7; --muted:#898781; --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
+  --s1:#3987e5; --s2:#d95926; --good-text:#0ca30c;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header.top{background:linear-gradient(120deg,var(--brand),var(--brand-2));color:var(--brand-ink);padding:18px 24px}
+.top-in{max-width:1320px;margin:0 auto;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.logo{width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,.14);display:grid;place-items:center}
+.top h1{margin:0;font-size:20px;font-weight:650;letter-spacing:.2px}
+.top p{margin:2px 0 0;opacity:.85;font-size:13px}
+.top .sp{flex:1}
+.top label{font-size:12px;opacity:.85;display:block}
+.top input[type=month]{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:6px 8px;font:inherit;color-scheme:dark}
+.btn{border:1px solid var(--border);background:var(--surface);color:var(--ink);padding:8px 14px;border-radius:9px;font:inherit;font-weight:550;cursor:pointer}
+.btn:hover{background:var(--surface-2)}
+.btn.pri{background:var(--brand-2);border-color:transparent;color:#fff}
+.btn.pri:hover{filter:brightness(1.08)}
+.top .btn{background:rgba(255,255,255,.14);color:#fff;border-color:rgba(255,255,255,.28)}
+.top .btn:hover{background:rgba(255,255,255,.24)}
+main{max-width:1320px;margin:0 auto;padding:20px 24px 60px}
+nav.tabs{display:flex;gap:4px;border-bottom:1px solid var(--grid);margin-bottom:18px;overflow-x:auto}
+nav.tabs button{background:none;border:0;border-bottom:2px solid transparent;padding:10px 14px;font:inherit;font-weight:550;color:var(--ink-2);cursor:pointer;white-space:nowrap}
+nav.tabs button.on{color:var(--ink);border-color:var(--brand-2)}
+.grid{display:grid;gap:14px}
+.k6{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+.c2{grid-template-columns:repeat(auto-fit,minmax(420px,1fr))}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px}
+.card h3{margin:0 0 2px;font-size:14px;font-weight:650}
+.card .sub{margin:0 0 12px;color:var(--muted);font-size:12px}
+.kpi .lab{color:var(--ink-2);font-size:12.5px;font-weight:550}
+.kpi .val{font-size:24px;font-weight:700;margin:4px 0 2px;letter-spacing:-.3px}
+.kpi .hint{color:var(--muted);font-size:12px}
+.kpi.pend .val{color:var(--muted);font-size:16px;font-weight:550}
+.kpi .bar{height:6px;background:var(--grid);border-radius:4px;margin-top:8px;overflow:hidden}
+.kpi .bar i{display:block;height:100%;border-radius:4px}
+.chart{position:relative;height:290px}
+.sec-t{font-size:12px;font-weight:650;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:22px 0 10px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--grid);text-align:left;white-space:nowrap}
+th{font-size:12px;color:var(--ink-2);font-weight:600;background:var(--surface-2);position:sticky;top:0;cursor:pointer;user-select:none}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+tbody tr:hover{background:var(--surface-2)}
+.tw{overflow:auto;max-height:560px;border:1px solid var(--grid);border-radius:10px}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:99px;font-size:12px;font-weight:600;border:1px solid var(--border)}
+.pill::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--c)}
+.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:12px}
+.filters label{font-size:12px;color:var(--ink-2);display:flex;flex-direction:column;gap:3px}
+select,input[type=search],input[type=number],input[type=text]{background:var(--surface);color:var(--ink);border:1px solid var(--axis);border-radius:8px;padding:7px 9px;font:inherit}
+input.cell{width:100%;min-width:110px;padding:5px 7px}
+.drop{border:2px dashed var(--axis);border-radius:14px;padding:22px;text-align:center;cursor:pointer;background:var(--surface);transition:.15s}
+.drop:hover,.drop.over{border-color:var(--brand-2);background:var(--surface-2)}
+.drop b{display:block;font-size:14px;margin-bottom:3px}
+.drop small{color:var(--muted)}
+.drop.ok{border-style:solid;border-color:var(--good)}
+.drop .st{margin-top:6px;font-size:12px;font-weight:600;color:var(--good-text)}
+.hero{display:grid;place-items:center;min-height:56vh;text-align:center}
+.hero .box{max-width:560px}
+.hero h2{font-size:22px;margin:0 0 6px}
+.hero p{color:var(--ink-2);margin:0 0 18px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--ink-2);margin-bottom:8px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:3px;background:var(--c)}
+.note{font-size:12px;color:var(--muted);margin-top:8px}
+.pager{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:10px;font-size:12px;color:var(--ink-2)}
+dialog{border:1px solid var(--border);border-radius:16px;background:var(--surface);color:var(--ink);padding:0;width:min(640px,94vw)}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+.dlg-h{background:var(--brand-2);color:#fff;padding:16px 20px}
+.dlg-h h3{margin:0;font-size:17px}
+.dlg-b{padding:16px 20px;display:grid;grid-template-columns:1fr 1fr;gap:10px 18px}
+.dlg-b div small{display:block;color:var(--muted);font-size:11.5px}
+.dlg-b div b{font-weight:600}
+.dlg-f{padding:0 20px 18px;display:flex;justify-content:flex-end}
+.hidden{display:none!important}
+.print-only{display:none}
+@media (max-width:700px){main{padding:16px}.c2{grid-template-columns:1fr}header.top{padding:14px 16px}.dlg-b{grid-template-columns:1fr}}
+@media print{
+  @page{size:A4 landscape;margin:12mm}
+  body{background:#fff;color:#000}
+  .no-print,nav.tabs,.filters,.pager{display:none!important}
+  .print-only{display:block}
+  .view{display:block!important}
+  .card{break-inside:avoid;border-color:#ccc}
+  .tw{max-height:none;overflow:visible}
+  header.top{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .chart{height:240px}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <div class="logo" aria-hidden="true">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 2.5c3.6 4.3 6.5 8 6.5 11.4A6.5 6.5 0 0 1 5.5 13.9C5.5 10.5 8.4 6.8 12 2.5Z" fill="#fff" fill-opacity=".95"/><path d="M9 14.5a3 3 0 0 0 3 3" stroke="#0e6aa0" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </div>
+    <div>
+      <h1>Gestión de Cartera · Las Ceibas</h1>
+      <p>Empresas Públicas de Neiva E.S.P. — Tablero de recaudo y morosidad</p>
+    </div>
+    <div class="sp"></div>
+    <div class="no-print"><label for="corte">Mes de corte</label><input type="month" id="corte"></div>
+    <button class="btn no-print hidden" id="bXls">⬇ Exportar Excel</button>
+    <button class="btn no-print hidden" id="bPrint">🖨 Informe mensual</button>
+    <button class="btn no-print" id="bTheme" title="Tema claro/oscuro">Tema</button>
+  </div>
+</header>
+
+<main>
+  <!-- Pantalla de carga -->
+  <section id="landing" class="hero">
+    <div class="box">
+      <h2>Carga la base de cartera del mes</h2>
+      <p>Arrastra el archivo de <b>Usuarios Morosos por Ruta</b> (.xls / .xlsx). Todo se procesa en tu computador: los datos no salen a internet.</p>
+      <div class="drop" id="dropMain"><b>Soltar archivo aquí o hacer clic</b><small>Columnas esperadas: Ruta, Nombres, NUID, USO, ESTRATO, ATRASO, DEUDA, PERIODO, DEUDA TOTAL, FECHA DE ULTIMO PAGO</small></div>
+    </div>
+  </section>
+
+  <section id="app" class="hidden">
+    <div class="print-only" id="printHead"></div>
+    <nav class="tabs" id="tabs">
+      <button data-v="resumen" class="on">Resumen</button>
+      <button data-v="edades">Edades de cartera</button>
+      <button data-v="ciclos">Ciclos y responsables</button>
+      <button data-v="clientes">Análisis por cliente</button>
+      <button data-v="datos">Fuentes de datos</button>
+    </nav>
+
+    <!-- RESUMEN -->
+    <div class="view" id="v-resumen">
+      <div class="grid k6" id="kpis"></div>
+      <div class="sec-t">Composición de la cartera</div>
+      <div class="grid c2">
+        <div class="card"><h3>Cartera vencida por edad</h3><p class="sub">Valor vencido según periodos de atraso</p><div class="chart"><canvas id="chEdadRes"></canvas></div></div>
+        <div class="card"><h3>Cartera por ciclo</h3><p class="sub">Vencida vs. por vencer (facturación del periodo)</p>
+          <div class="legend"><span style="--c:var(--s1)"><i></i>Por vencer</span><span style="--c:var(--s2)"><i></i>Vencida</span></div>
+          <div class="chart"><canvas id="chCicloRes"></canvas></div></div>
+      </div>
+      <div class="grid c2" style="margin-top:14px">
+        <div class="card"><h3>Morosidad por uso</h3><p class="sub">Cartera vencida y número de usuarios morosos</p><div class="tw" id="tUso"></div></div>
+        <div class="card"><h3>Morosidad por estrato</h3><p class="sub">Cartera vencida y número de usuarios morosos</p><div class="tw" id="tEstrato"></div></div>
+      </div>
+    </div>
+
+    <!-- EDADES -->
+    <div class="view hidden" id="v-edades">
+      <div class="grid c2">
+        <div class="card"><h3>Valor vencido por rango de edad</h3><p class="sub">Identificación automática por periodos de atraso (1 periodo ≈ 30 días)</p><div class="chart"><canvas id="chEdadVal"></canvas></div></div>
+        <div class="card"><h3>Usuarios morosos por rango de edad</h3><p class="sub">Número de suscriptores en cada rango</p><div class="chart"><canvas id="chEdadCnt"></canvas></div></div>
+      </div>
+      <div class="card" style="margin-top:14px"><h3>Matriz de edades por ciclo</h3><p class="sub">Valor vencido ($) por ciclo y rango de edad</p><div class="tw" id="tMatriz"></div></div>
+    </div>
+
+    <!-- CICLOS -->
+    <div class="view hidden" id="v-ciclos">
+      <div class="card"><h3>Metas, recaudo y responsables por ciclo</h3>
+        <p class="sub">Escribe la meta y el auxiliar de cartera de cada ciclo, o cárgalos desde la pestaña Fuentes de datos. Se guardan en este navegador.</p>
+        <div class="tw" id="tCiclos" style="max-height:none"></div></div>
+      <div class="grid c2" style="margin-top:14px">
+        <div class="card"><h3>Cumplimiento de meta por ciclo</h3><p class="sub" id="subCump">Recaudo / meta</p><div class="chart"><canvas id="chCump"></canvas></div></div>
+        <div class="card"><h3>Índice de morosidad por ciclo</h3><p class="sub">% de usuarios con atraso ≥ 1 periodo</p><div class="chart"><canvas id="chMorCiclo"></canvas></div></div>
+      </div>
+      <div class="card" style="margin-top:14px"><h3>Consolidado por responsable</h3><p class="sub">Auxiliar de cartera asignado a cada ciclo</p><div class="tw" id="tResp" style="max-height:none"></div></div>
+    </div>
+
+    <!-- CLIENTES -->
+    <div class="view hidden" id="v-clientes">
+      <div class="card">
+        <div class="filters">
+          <label>Buscar<input type="search" id="fQ" placeholder="Nombre, NUID, ruta o dirección" style="min-width:260px"></label>
+          <label>Ciclo<select id="fCiclo"></select></label>
+          <label>Edad<select id="fEdad"></select></label>
+          <label>Uso<select id="fUso"></select></label>
+          <label>Estrato<select id="fEstrato"></select></label>
+          <label>Estado<select id="fMor"><option value="mor">Solo morosos</option><option value="all">Todos</option></select></label>
+          <span class="sp" style="flex:1"></span>
+          <span id="fRes" style="font-size:12px;color:var(--ink-2)"></span>
+        </div>
+        <div class="tw" id="tClientes"></div>
+        <div class="pager"><button class="btn" id="pPrev">‹</button><span id="pInfo"></span><button class="btn" id="pNext">›</button></div>
+      </div>
+    </div>
+
+    <!-- DATOS -->
+    <div class="view hidden" id="v-datos">
+      <div class="grid c2">
+        <div class="drop" id="dropCartera"><b>Base de cartera (usuarios morosos)</b><small>Reemplaza la base cargada</small><div class="st" id="stCartera"></div></div>
+        <div class="drop" id="dropRecaudo"><b>Base de recaudos del mes</b><small>Columnas: NUID (o RUTA/CICLO), VALOR, FECHA opcional</small><div class="st" id="stRecaudo"></div></div>
+        <div class="drop" id="dropMetas"><b>Metas y responsables</b><small>Columnas: CICLO, META, RESPONSABLE (opcional)</small><div class="st" id="stMetas"></div></div>
+        <div class="card"><h3>Supuestos del prototipo</h3>
+          <ul style="margin:6px 0 0;padding-left:18px;color:var(--ink-2);font-size:13px">
+            <li>Ciclo = primeros 3 dígitos de la Ruta.</li>
+            <li>Cartera vencida = DEUDA &gt; 0 de usuarios con atraso ≥ 1; por vencer = PERIODO (factura vigente).</li>
+            <li>Moroso = ATRASO ≥ 1 periodo. Saldos negativos se reportan como saldo a favor.</li>
+            <li>Cumplimiento = Recaudo / Meta. Efectividad = Recaudo / (Recaudo + Cartera vencida).</li>
+            <li>Códigos de uso: 1 Residencial, 2 Comercial, 3 Industrial, 4 Oficial, 5 Especial (ajustable).</li>
+          </ul></div>
+      </div>
+    </div>
+    <div class="note print-only" style="margin-top:16px">Informe generado con el tablero de Gestión de Cartera.</div>
+  </section>
+</main>
+
+<dialog id="dlg"><div class="dlg-h"><h3 id="dTitle"></h3><div id="dSub" style="opacity:.85;font-size:13px"></div></div><div class="dlg-b" id="dBody"></div><div class="dlg-f"><button class="btn" onclick="dlg.close()">Cerrar</button></div></dialog>
+<input type="file" id="fileIn" accept=".xls,.xlsx,.csv" class="hidden">
+
+<script>
+/* ===================== utilidades ===================== */
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const fmt$=v=>'$ '+Math.round(v||0).toLocaleString('es-CO');
+const fmtM=v=>{const a=Math.abs(v);return a>=1e6?'$ '+(v/1e6).toLocaleString('es-CO',{maximumFractionDigits:1})+' M':fmt$(v)};
+const fmtN=v=>Math.round(v||0).toLocaleString('es-CO');
+const fmtP=v=>isFinite(v)?(v*100).toLocaleString('es-CO',{maximumFractionDigits:1})+' %':'—';
+const norm=s=>String(s??'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/\s+/g,' ').trim();
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const LS={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+
+const USOS={1:'Residencial',2:'Comercial',3:'Industrial',4:'Oficial',5:'Especial'};
+const EDADES=[
+  {k:'0',lab:'Al día',min:0,max:0},
+  {k:'1',lab:'1–30 días',min:1,max:1},
+  {k:'2',lab:'31–60 días',min:2,max:2},
+  {k:'3',lab:'61–90 días',min:3,max:3},
+  {k:'4',lab:'91–180 días',min:4,max:6},
+  {k:'5',lab:'181–360 días',min:7,max:12},
+  {k:'6',lab:'1–2 años',min:13,max:24},
+  {k:'7',lab:'Más de 2 años',min:25,max:1e9},
+];
+const edadDe=a=>EDADES.find(e=>a>=e.min&&a<=e.max)||EDADES[0];
+const SEQ=['#86b6ef','#5598e7','#3987e5','#2a78d6','#256abf','#1c5cab','#184f95','#0d366b'];
+const SEQ_D=['#184f95','#1c5cab','#256abf','#2a78d6','#3987e5','#5598e7','#6da7ec','#86b6ef'];
+
+/* ===================== estado ===================== */
+const S={rows:[],recaudo:null,recaudoRows:0,metas:LS.get('cart_metas',{}),resp:LS.get('cart_resp',{}),page:0,sort:{k:'deuda',d:-1}};
+const corte=$('#corte');
+corte.value=LS.get('cart_corte',null)||new Date().toISOString().slice(0,7);
+corte.onchange=()=>{LS.set('cart_corte',corte.value);if(S.rows.length)renderAll()};
+
+/* ===================== lectura de archivos ===================== */
+function readBook(file){return new Promise((ok,ko)=>{const r=new FileReader();r.onload=e=>{try{ok(XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true}))}catch(err){ko(err)}};r.onerror=ko;r.readAsArrayBuffer(file)})}
+function sheetRows(wb){const ws=wb.Sheets[wb.SheetNames[0]];const raw=XLSX.utils.sheet_to_json(ws,{defval:null,raw:true});
+  return raw.map(o=>{const n={};for(const k in o)n[norm(k)]=o[k];return n})}
+const pick=(o,...names)=>{for(const n of names){if(o[n]!==undefined&&o[n]!==null&&o[n]!=='')return o[n]}return null};
+const num=v=>{if(v==null)return 0;if(typeof v==='number')return v;const s=String(v).replace(/[$\s]/g,'').replace(/\.(?=\d{3}(\D|$))/g,'').replace(',','.');const n=parseFloat(s);return isNaN(n)?0:n};
+const toDate=v=>{if(!v)return null;if(v instanceof Date)return v;if(typeof v==='number'){const d=XLSX.SSF.parse_date_code(v);return d?new Date(d.y,d.m-1,d.d):null}const d=new Date(v);return isNaN(d)?null:d};
+
+async function loadCartera(file){
+  const rows=sheetRows(await readBook(file));
+  const out=[];
+  for(const o of rows){
+    const nuid=pick(o,'NUID','CODIGO','SUSCRIPTOR');const ruta=pick(o,'RUTA');
+    if(nuid==null||ruta==null)continue; // excluye fila de totales
+    const r={ruta:String(Math.trunc(num(ruta))),nombre:String(pick(o,'NOMBRES','NOMBRE')||'').replace(/\s+/g,' ').trim(),nuid:String(nuid),
+      dir:String(pick(o,'DIRRUTA','DIRECCION')||'').replace(/\s+/g,' ').trim(),uso:num(pick(o,'USO')),estrato:num(pick(o,'ESTRATO')),
+      tel:String(pick(o,'TELEFONO')||''),estado:pick(o,'ESTADO'),medidor:pick(o,'MEDIDOR'),atraso:num(pick(o,'ATRASO')),
+      deuda:num(pick(o,'DEUDA')),periodo:num(pick(o,'PERIODO')),total:num(pick(o,'DEUDA TOTAL','TOTAL')),fpago:toDate(pick(o,'FECHA DE ULTIMO PAGO','FECHA ULTIMO PAGO'))};
+    r.ciclo=r.ruta.slice(0,3);r.edad=edadDe(r.atraso);r.moroso=r.atraso>=1;r.vencida=r.moroso?Math.max(r.deuda,0):0;
+    r.q=norm(r.nombre+' '+r.nuid+' '+r.ruta+' '+r.dir);
+    out.push(r);
+  }
+  if(!out.length)throw new Error('No se encontraron columnas Ruta y NUID en el archivo.');
+  S.rows=out;S.page=0;
+  $('#stCartera').textContent=`✓ ${file.name} — ${fmtN(out.length)} usuarios`;$('#dropCartera').classList.add('ok');
+  $('#landing').classList.add('hidden');$('#app').classList.remove('hidden');$('#bXls').classList.remove('hidden');$('#bPrint').classList.remove('hidden');
+  buildFilters();renderAll();
+}
+async function loadRecaudo(file){
+  const rows=sheetRows(await readBook(file));const byNuid={};S.rows.forEach(r=>byNuid[r.nuid]=r);
+  const porCiclo={};let tot=0,n=0,sin=0;
+  for(const o of rows){
+    const v=num(pick(o,'VALOR','VALOR RECAUDADO','RECAUDO','VALOR PAGADO','PAGO','VALOR PAGO'));if(!v)continue;
+    let c=pick(o,'CICLO');const nu=pick(o,'NUID','CODIGO','SUSCRIPTOR');const ru=pick(o,'RUTA');
+    if(!c&&nu!=null&&byNuid[String(nu)])c=byNuid[String(nu)].ciclo;
+    if(!c&&ru!=null)c=String(Math.trunc(num(ru))).slice(0,3);
+    c=c?String(c).trim():'SIN CICLO';if(c==='SIN CICLO')sin++;
+    porCiclo[c]=(porCiclo[c]||0)+v;tot+=v;n++;
+  }
+  S.recaudo=porCiclo;S.recaudoRows=n;
+  $('#stRecaudo').textContent=`✓ ${file.name} — ${fmtN(n)} pagos · ${fmt$(tot)}`+(sin?` · ${sin} sin ciclo`:'');$('#dropRecaudo').classList.add('ok');
+  renderAll();
+}
+async function loadMetas(file){
+  const rows=sheetRows(await readBook(file));let n=0;
+  for(const o of rows){const c=pick(o,'CICLO','RUTA');if(c==null)continue;const k=String(Math.trunc(num(c))).slice(0,3);
+    const m=pick(o,'META','META RECAUDO','META DE RECAUDO');if(m!=null)S.metas[k]=num(m);
+    const r=pick(o,'RESPONSABLE','AUXILIAR','AUX DE CARTERA','AUXILIAR DE CARTERA');if(r)S.resp[k]=String(r).trim();n++}
+  LS.set('cart_metas',S.metas);LS.set('cart_resp',S.resp);
+  $('#stMetas').textContent=`✓ ${file.name} — ${n} ciclos`;$('#dropMetas').classList.add('ok');renderAll();
+}
+function wireDrop(el,fn){
+  const go=f=>f&&fn(f).catch(e=>alertMsg(e.message||String(e)));
+  el.onclick=()=>{const i=$('#fileIn');i.value='';i.onchange=()=>go(i.files[0]);i.click()};
+  el.ondragover=e=>{e.preventDefault();el.classList.add('over')};el.ondragleave=()=>el.classList.remove('over');
+  el.ondrop=e=>{e.preventDefault();el.classList.remove('over');go(e.dataTransfer.files[0])};
+}
+function alertMsg(m){$('#dTitle').textContent='No se pudo leer el archivo';$('#dSub').textContent='';$('#dBody').innerHTML=`<div style="grid-column:1/-1">${esc(m)}</div>`;dlg.showModal()}
+wireDrop($('#dropMain'),loadCartera);wireDrop($('#dropCartera'),loadCartera);
+wireDrop($('#dropRecaudo'),f=>S.rows.length?loadRecaudo(f):Promise.reject(new Error('Primero carga la base de cartera.')));
+wireDrop($('#dropMetas'),loadMetas);
+
+/* ===================== cálculos ===================== */
+function agg(rows){const a={n:rows.length,mor:0,venc:0,porv:0,total:0,favor:0};
+  for(const r of rows){if(r.moroso)a.mor++;a.venc+=r.vencida;a.porv+=Math.max(r.periodo,0);a.total+=r.total;if(r.deuda<0)a.favor+=-r.deuda}return a}
+function group(rows,key){const m=new Map();for(const r of rows){const k=typeof key==='function'?key(r):r[key];if(!m.has(k))m.set(k,[]);m.get(k).push(r)}return m}
+const ciclos=()=>[...new Set(S.rows.map(r=>r.ciclo))].sort();
+function recaudoDe(c){return S.recaudo?(S.recaudo[c]||0):null}
+function totRecaudo(){return S.recaudo?Object.values(S.recaudo).reduce((a,b)=>a+b,0):null}
+function totMeta(){const v=ciclos().map(c=>S.metas[c]||0);const s=v.reduce((a,b)=>a+b,0);return s>0?s:null}
+
+/* ===================== charts ===================== */
+const CH={};
+function chartBase(){
+  const ink2=css('--ink-2'),grid=css('--grid'),muted=css('--muted');
+  Chart.defaults.font.family='system-ui,-apple-system,"Segoe UI",sans-serif';Chart.defaults.font.size=12;Chart.defaults.color=ink2;
+  return {grid,muted,ink2};
+}
+function mkChart(id,cfg){if(CH[id])CH[id].destroy();CH[id]=new Chart(document.getElementById(id),cfg)}
+function barOpts({horizontal=false,money=true,stacked=false,pct=false,legend=false}={}){
+  const {grid,muted}=chartBase();const tick=v=>pct?(v*100).toFixed(0)+'%':money?fmtM(v):fmtN(v);
+  const val={grid:{color:grid},border:{display:false},ticks:{color:muted,callback:tick},stacked,beginAtZero:true};
+  const cat={grid:{display:false},border:{color:css('--axis')},ticks:{color:muted},stacked};
+  return {responsive:true,maintainAspectRatio:false,indexAxis:horizontal?'y':'x',animation:{duration:350},
+    scales:horizontal?{x:val,y:cat}:{x:cat,y:val},
+    plugins:{legend:{display:legend},tooltip:{backgroundColor:css('--surface'),titleColor:css('--ink'),bodyColor:css('--ink-2'),borderColor:css('--axis'),borderWidth:1,padding:10,
+      callbacks:{label:c=>' '+(c.dataset.label?c.dataset.label+': ':'')+(pct?fmtP(c.raw):money?fmt$(c.raw):fmtN(c.raw))}}}};
+}
+const dark=()=>css('--surface').toLowerCase()!=='#ffffff';
+const barDs=(data,color,label)=>({label,data,backgroundColor:color,borderRadius:4,borderSkipped:'start',maxBarThickness:42,borderColor:css('--surface'),borderWidth:{top:0,bottom:0,left:0,right:0}});
+
+/* ===================== render ===================== */
+function renderAll(){renderKpis();renderResumen();renderEdades();renderCiclos();renderClientes();
+  const [y,m]=corte.value.split('-');const mes=new Date(+y,+m-1,1).toLocaleDateString('es-CO',{month:'long',year:'numeric'});
+  $('#printHead').innerHTML=`<h2 style="margin:0 0 4px">Informe mensual de cartera — ${esc(mes)}</h2><p style="margin:0 0 14px;color:#555">Generado el ${new Date().toLocaleDateString('es-CO')} · ${fmtN(S.rows.length)} suscriptores</p>`}
+
+function kpi(lab,val,hint,opt={}){const pend=val==null;
+  return `<div class="card kpi${pend?' pend':''}"><div class="lab">${lab}</div><div class="val">${pend?(opt.pend||'Pendiente de datos'):val}</div><div class="hint">${hint||''}</div>${opt.bar!=null&&!pend?`<div class="bar"><i style="width:${Math.min(100,opt.bar*100)}%;background:${opt.barc}"></i></div>`:''}</div>`}
+function renderKpis(){
+  const a=agg(S.rows),meta=totMeta(),rec=totRecaudo();
+  const cump=meta&&rec!=null?rec/meta:null,efec=rec!=null?rec/(rec+a.venc):null;
+  const cc=cump==null?'':cump>=1?css('--good'):cump>=.8?css('--warn'):css('--crit');
+  $('#kpis').innerHTML=[
+    kpi('Meta total de recaudo',meta!=null?fmtM(meta):null,'Suma de metas por ciclo',{pend:'Definir metas'}),
+    kpi('Recaudo total',rec!=null?fmtM(rec):null,rec!=null?fmtN(S.recaudoRows)+' pagos registrados':'Cargar base de recaudos',{pend:'Cargar recaudos'}),
+    kpi('Cumplimiento de recaudo',cump!=null?fmtP(cump):null,cump!=null?(cump>=1?'▲ Meta cumplida':cump>=.8?'● Cerca de la meta':'▼ Por debajo de la meta'):'Recaudo / meta',{bar:cump,barc:cc,pend:'Requiere meta y recaudo'}),
+    kpi('Saldo total de cartera',fmtM(a.total),'Deuda total del corte'+(a.favor?` · saldos a favor ${fmtM(a.favor)}`:'')),
+    kpi('Cartera vencida',fmtM(a.venc),fmtP(a.venc/(a.venc+a.porv))+' de la cartera bruta'),
+    kpi('Cartera por vencer',fmtM(a.porv),'Facturación vigente del periodo'),
+    kpi('Clientes morosos',fmtN(a.mor),fmtP(a.mor/a.n)+' de '+fmtN(a.n)+' suscriptores'),
+    kpi('Efectividad de recaudo',efec!=null?fmtP(efec):null,'Recaudo / (recaudo + vencida)',{bar:efec,barc:css('--s1'),pend:'Cargar recaudos'}),
+  ].join('');
+}
+function edadSeries(rows,field){const s=EDADES.slice(1).map(()=>0);for(const r of rows){if(!r.moroso)continue;const i=EDADES.indexOf(r.edad)-1;if(i>=0)s[i]+=field==='n'?1:r.vencida}return s}
+function renderResumen(){
+  const seq=dark()?SEQ_D:SEQ;const labs=EDADES.slice(1).map(e=>e.lab);
+  mkChart('chEdadRes',{type:'bar',data:{labels:labs,datasets:[barDs(edadSeries(S.rows,'v'),seq.slice(0,7),'Vencida')]},options:barOpts()});
+  const cs=ciclos(),g=group(S.rows,'ciclo');
+  const opt=barOpts({stacked:true,legend:false});
+  mkChart('chCicloRes',{type:'bar',data:{labels:cs.map(c=>'Ciclo '+c),datasets:[
+    {...barDs(cs.map(c=>agg(g.get(c)).porv),css('--s1'),'Por vencer'),borderRadius:0},
+    {...barDs(cs.map(c=>agg(g.get(c)).venc),css('--s2'),'Vencida'),borderWidth:{top:2},borderColor:css('--surface')}]},options:opt});
+  const segTable=(key,labf)=>{const m=group(S.rows,key);const ks=[...m.keys()].sort((a,b)=>a-b);const tot=agg(S.rows);
+    return `<table><thead><tr><th>${key==='uso'?'Uso':'Estrato'}</th><th class="n">Usuarios</th><th class="n">Morosos</th><th class="n">% morosidad</th><th class="n">Cartera vencida</th><th class="n">% del vencido</th></tr></thead><tbody>`+
+    ks.map(k=>{const a=agg(m.get(k));return `<tr><td>${esc(labf(k))}</td><td class="n">${fmtN(a.n)}</td><td class="n">${fmtN(a.mor)}</td><td class="n">${fmtP(a.mor/a.n)}</td><td class="n">${fmt$(a.venc)}</td><td class="n">${fmtP(a.venc/tot.venc)}</td></tr>`}).join('')+
+    `<tr style="font-weight:650"><td>Total</td><td class="n">${fmtN(tot.n)}</td><td class="n">${fmtN(tot.mor)}</td><td class="n">${fmtP(tot.mor/tot.n)}</td><td class="n">${fmt$(tot.venc)}</td><td class="n">100 %</td></tr></tbody></table>`};
+  $('#tUso').innerHTML=segTable('uso',k=>`${k} · ${USOS[k]||'Otro'}`);
+  $('#tEstrato').innerHTML=segTable('estrato',k=>'Estrato '+k);
+}
+function renderEdades(){
+  const seq=dark()?SEQ_D:SEQ;const labs=EDADES.slice(1).map(e=>e.lab);
+  mkChart('chEdadVal',{type:'bar',data:{labels:labs,datasets:[barDs(edadSeries(S.rows,'v'),seq.slice(0,7),'Vencida')]},options:barOpts()});
+  mkChart('chEdadCnt',{type:'bar',data:{labels:labs,datasets:[barDs(edadSeries(S.rows,'n'),seq.slice(0,7),'Usuarios')]},options:barOpts({money:false})});
+  const cs=ciclos(),g=group(S.rows,'ciclo');const E=EDADES.slice(1);
+  let h=`<table><thead><tr><th>Ciclo</th>${E.map(e=>`<th class="n">${e.lab}</th>`).join('')}<th class="n">Total vencido</th><th class="n">Morosos</th></tr></thead><tbody>`;
+  const tot=E.map(()=>0);
+  for(const c of cs){const s=edadSeries(g.get(c),'v');s.forEach((v,i)=>tot[i]+=v);const a=agg(g.get(c));
+    h+=`<tr><td>Ciclo ${c}</td>${s.map(v=>`<td class="n">${v?fmt$(v):'–'}</td>`).join('')}<td class="n"><b>${fmt$(a.venc)}</b></td><td class="n">${fmtN(a.mor)}</td></tr>`}
+  const A=agg(S.rows);h+=`<tr style="font-weight:650"><td>Total</td>${tot.map(v=>`<td class="n">${fmt$(v)}</td>`).join('')}<td class="n">${fmt$(A.venc)}</td><td class="n">${fmtN(A.mor)}</td></tr>`;
+  h+=`<tr style="color:var(--muted)"><td>% del vencido</td>${tot.map(v=>`<td class="n">${fmtP(v/A.venc)}</td>`).join('')}<td class="n">100 %</td><td></td></tr></tbody></table>`;
+  $('#tMatriz').innerHTML=h;
+}
+function renderCiclos(){
+  const cs=ciclos(),g=group(S.rows,'ciclo');const hasRec=S.recaudo!=null;
+  let h=`<table><thead><tr><th>Ciclo</th><th>Responsable (aux. de cartera)</th><th class="n">Meta de recaudo</th><th class="n">Recaudo</th><th class="n">Cumplimiento</th><th class="n">Usuarios</th><th class="n">Morosos</th><th class="n">Vencida</th><th class="n">Por vencer</th><th class="n">Saldo total</th></tr></thead><tbody>`;
+  const T={meta:0,rec:0};
+  for(const c of cs){const a=agg(g.get(c)),m=S.metas[c]||0,r=recaudoDe(c);T.meta+=m;T.rec+=r||0;const cu=m&&r!=null?r/m:null;
+    h+=`<tr><td><b>Ciclo ${c}</b></td><td><input class="cell" type="text" data-resp="${c}" value="${esc(S.resp[c]||'')}" placeholder="Asignar…"></td>
+    <td class="n"><input class="cell n" type="number" min="0" step="1000" data-meta="${c}" value="${m||''}" placeholder="0" style="text-align:right"></td>
+    <td class="n">${r!=null?fmt$(r):'<span style="color:var(--muted)">—</span>'}</td><td class="n">${cu!=null?statusPill(cu):'—'}</td>
+    <td class="n">${fmtN(a.n)}</td><td class="n">${fmtN(a.mor)}</td><td class="n">${fmt$(a.venc)}</td><td class="n">${fmt$(a.porv)}</td><td class="n">${fmt$(a.total)}</td></tr>`}
+  const A=agg(S.rows);
+  h+=`<tr style="font-weight:650"><td>Total</td><td></td><td class="n">${T.meta?fmt$(T.meta):'—'}</td><td class="n">${hasRec?fmt$(T.rec):'—'}</td><td class="n">${T.meta&&hasRec?statusPill(T.rec/T.meta):'—'}</td><td class="n">${fmtN(A.n)}</td><td class="n">${fmtN(A.mor)}</td><td class="n">${fmt$(A.venc)}</td><td class="n">${fmt$(A.porv)}</td><td class="n">${fmt$(A.total)}</td></tr></tbody></table>`;
+  $('#tCiclos').innerHTML=h;
+  $$('[data-meta]').forEach(i=>i.onchange=()=>{S.metas[i.dataset.meta]=num(i.value);LS.set('cart_metas',S.metas);renderKpis();renderCiclos()});
+  $$('[data-resp]').forEach(i=>i.onchange=()=>{S.resp[i.dataset.resp]=i.value.trim();LS.set('cart_resp',S.resp);renderCiclos()});
+  // cumplimiento chart
+  const cum=cs.map(c=>{const m=S.metas[c],r=recaudoDe(c);return m&&r!=null?r/m:0});
+  const any=cum.some(v=>v>0);
+  $('#subCump').textContent=any?'Recaudo / meta · verde ≥ 100 %, amarillo ≥ 80 %, rojo < 80 %':'Se activa al cargar metas y recaudos';
+  mkChart('chCump',{type:'bar',data:{labels:cs.map(c=>'Ciclo '+c),datasets:[barDs(cum,cum.map(v=>v>=1?css('--good'):v>=.8?css('--warn'):css('--crit')),'Cumplimiento')]},options:barOpts({pct:true})});
+  const mor=cs.map(c=>{const a=agg(g.get(c));return a.mor/a.n});
+  mkChart('chMorCiclo',{type:'bar',data:{labels:cs.map(c=>'Ciclo '+c),datasets:[barDs(mor,css('--s2'),'Morosidad')]},options:barOpts({pct:true})});
+  // por responsable
+  const byR=new Map();for(const c of cs){const k=S.resp[c]||'Sin asignar';if(!byR.has(k))byR.set(k,[]);byR.get(k).push(c)}
+  let t=`<table><thead><tr><th>Responsable</th><th>Ciclos</th><th class="n">Meta</th><th class="n">Recaudo</th><th class="n">Cumplimiento</th><th class="n">Morosos</th><th class="n">Cartera vencida</th></tr></thead><tbody>`;
+  for(const [k,cl] of [...byR].sort()){const rows=cl.flatMap(c=>g.get(c));const a=agg(rows);const m=cl.reduce((s,c)=>s+(S.metas[c]||0),0);const r=hasRec?cl.reduce((s,c)=>s+(recaudoDe(c)||0),0):null;
+    t+=`<tr><td><b>${esc(k)}</b></td><td>${cl.join(', ')}</td><td class="n">${m?fmt$(m):'—'}</td><td class="n">${r!=null?fmt$(r):'—'}</td><td class="n">${m&&r!=null?statusPill(r/m):'—'}</td><td class="n">${fmtN(a.mor)}</td><td class="n">${fmt$(a.venc)}</td></tr>`}
+  $('#tResp').innerHTML=t+'</tbody></table>';
+}
+function statusPill(v){const [c,i]=v>=1?['--good','▲']:v>=.8?['--warn','●']:['--crit','▼'];return `<span class="pill" style="--c:var(${c})">${i} ${fmtP(v)}</span>`}
+
+/* ===================== clientes ===================== */
+function buildFilters(){
+  const opt=(arr,all)=>`<option value="">${all}</option>`+arr.map(([v,l])=>`<option value="${v}">${esc(l)}</option>`).join('');
+  $('#fCiclo').innerHTML=opt(ciclos().map(c=>[c,'Ciclo '+c]),'Todos');
+  $('#fEdad').innerHTML=opt(EDADES.map(e=>[e.k,e.lab]),'Todas');
+  $('#fUso').innerHTML=opt([...new Set(S.rows.map(r=>r.uso))].sort().map(u=>[u,u+' · '+(USOS[u]||'Otro')]),'Todos');
+  $('#fEstrato').innerHTML=opt([...new Set(S.rows.map(r=>r.estrato))].sort().map(u=>[u,'Estrato '+u]),'Todos');
+  ['#fQ','#fCiclo','#fEdad','#fUso','#fEstrato','#fMor'].forEach(s=>$(s).oninput=()=>{S.page=0;renderClientes()});
+}
+function filtered(){const q=norm($('#fQ').value),c=$('#fCiclo').value,e=$('#fEdad').value,u=$('#fUso').value,es=$('#fEstrato').value,m=$('#fMor').value;
+  return S.rows.filter(r=>(!q||r.q.includes(q))&&(!c||r.ciclo===c)&&(!e||r.edad.k===e)&&(!u||String(r.uso)===u)&&(!es||String(r.estrato)===es)&&(m==='all'||r.moroso))}
+const COLS=[['ruta','Ruta'],['nuid','NUID'],['nombre','Nombre'],['dir','Dirección'],['uso','Uso'],['estrato','Estr.'],['atraso','Atraso',1],['edad','Edad'],['deuda','Vencida',1],['periodo','Periodo',1],['total','Deuda total',1],['fpago','Último pago']];
+function renderClientes(){
+  const rows=filtered();const {k,d}=S.sort;
+  rows.sort((a,b)=>{let x=a[k],y=b[k];if(k==='edad'){x=a.atraso;y=b.atraso}if(x instanceof Date||y instanceof Date){x=x?+x:0;y=y?+y:0}return (x>y?1:x<y?-1:0)*d});
+  const P=50,pages=Math.max(1,Math.ceil(rows.length/P));S.page=Math.min(S.page,pages-1);const sl=rows.slice(S.page*P,S.page*P+P);
+  const sumV=rows.reduce((s,r)=>s+r.vencida,0),sumT=rows.reduce((s,r)=>s+r.total,0);
+  $('#fRes').innerHTML=`${fmtN(rows.length)} usuarios · vencida ${fmt$(sumV)} · deuda total ${fmt$(sumT)}`;
+  const ecol=e=>{const i=EDADES.indexOf(e);return i===0?'var(--good)':i<=2?'var(--warn)':i<=4?'var(--serious)':'var(--crit)'};
+  $('#tClientes').innerHTML=`<table><thead><tr>${COLS.map(([key,l,n])=>`<th class="${n?'n':''}" data-k="${key}">${l}${k===key?(d>0?' ▲':' ▼'):''}</th>`).join('')}</tr></thead><tbody>`+
+    sl.map((r,i)=>`<tr data-i="${S.rows.indexOf(r)}" style="cursor:pointer"><td>${r.ruta}</td><td>${esc(r.nuid)}</td><td>${esc(r.nombre)}</td><td style="max-width:240px;overflow:hidden;text-overflow:ellipsis">${esc(r.dir)}</td><td>${r.uso}</td><td>${r.estrato}</td><td class="n">${r.atraso}</td>
+    <td><span class="pill" style="--c:${ecol(r.edad)}">${r.edad.lab}</span></td><td class="n">${fmt$(r.deuda)}</td><td class="n">${fmt$(r.periodo)}</td><td class="n"><b>${fmt$(r.total)}</b></td><td>${r.fpago?r.fpago.toLocaleDateString('es-CO'):'<span style="color:var(--muted)">Sin pago</span>'}</td></tr>`).join('')+'</tbody></table>';
+  $$('#tClientes th').forEach(th=>th.onclick=()=>{const kk=th.dataset.k;S.sort=S.sort.k===kk?{k:kk,d:-S.sort.d}:{k:kk,d:-1};renderClientes()});
+  $$('#tClientes tbody tr').forEach(tr=>tr.onclick=()=>ficha(S.rows[+tr.dataset.i]));
+  $('#pInfo').textContent=`Página ${S.page+1} de ${pages}`;
+  $('#pPrev').onclick=()=>{if(S.page>0){S.page--;renderClientes()}};$('#pNext').onclick=()=>{if(S.page<pages-1){S.page++;renderClientes()}};
+}
+function ficha(r){
+  const otros=S.rows.filter(x=>x.nombre===r.nombre&&x!==r);
+  $('#dTitle').textContent=r.nombre;$('#dSub').textContent=`NUID ${r.nuid} · Ruta ${r.ruta} · Ciclo ${r.ciclo}`;
+  const f=(l,v)=>`<div><small>${l}</small><b>${v}</b></div>`;
+  $('#dBody').innerHTML=[f('Dirección',esc(r.dir)),f('Teléfono',esc(r.tel)||'—'),f('Uso',r.uso+' · '+(USOS[r.uso]||'Otro')),f('Estrato',r.estrato),f('Medidor',esc(r.medidor)),f('Estado',esc(r.estado)),
+    f('Periodos de atraso',r.atraso),f('Edad de la deuda',r.edad.lab),f('Deuda vencida',fmt$(r.deuda)),f('Factura del periodo',fmt$(r.periodo)),f('Deuda total',fmt$(r.total)),
+    f('Último pago',r.fpago?r.fpago.toLocaleDateString('es-CO'):'Sin pago registrado'),f('Responsable de cobro',esc(S.resp[r.ciclo]||'Sin asignar')),
+    otros.length?`<div style="grid-column:1/-1"><small>Otras cuentas del mismo titular (${otros.length})</small>${otros.map(o=>`NUID ${esc(o.nuid)} · ${esc(o.dir)} · ${fmt$(o.total)}`).join('<br>')}</div>`:''].join('');
+  dlg.showModal();
+}
+
+/* ===================== exportar / imprimir ===================== */
+$('#bXls').onclick=()=>{
+  const wb=XLSX.utils.book_new(),a=agg(S.rows),meta=totMeta(),rec=totRecaudo();
+  const res=[['Informe de cartera',corte.value],[],['Indicador','Valor'],['Meta total de recaudo',meta??'Pendiente'],['Recaudo total',rec??'Pendiente'],['Cumplimiento de recaudo',meta&&rec!=null?rec/meta:'Pendiente'],
+    ['Saldo total de cartera',a.total],['Cartera vencida',a.venc],['Cartera por vencer',a.porv],['Saldos a favor',a.favor],['Número de clientes morosos',a.mor],['Total suscriptores',a.n],['Índice de morosidad',a.mor/a.n],['Efectividad de recaudo',rec!=null?rec/(rec+a.venc):'Pendiente']];
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(res),'Resumen');
+  const ed=[['Rango de edad','Usuarios','Cartera vencida','% del vencido']];const vs=edadSeries(S.rows,'v'),ns=edadSeries(S.rows,'n');
+  EDADES.slice(1).forEach((e,i)=>ed.push([e.lab,ns[i],vs[i],vs[i]/a.venc]));XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(ed),'Edades');
+  const g=group(S.rows,'ciclo');const ci=[['Ciclo','Responsable','Meta','Recaudo','Cumplimiento','Usuarios','Morosos','Vencida','Por vencer','Saldo total',...EDADES.slice(1).map(e=>e.lab)]];
+  ciclos().forEach(c=>{const x=agg(g.get(c)),m=S.metas[c]||null,r=recaudoDe(c);ci.push([c,S.resp[c]||'',m,r,m&&r!=null?r/m:null,x.n,x.mor,x.venc,x.porv,x.total,...edadSeries(g.get(c),'v')])});
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(ci),'Ciclos');
+  const det=[['Ciclo','Ruta','NUID','Nombre','Dirección','Uso','Estrato','Teléfono','Atraso','Edad','Deuda vencida','Periodo','Deuda total','Último pago','Responsable']];
+  S.rows.filter(r=>r.moroso).sort((x,y)=>y.total-x.total).forEach(r=>det.push([r.ciclo,r.ruta,r.nuid,r.nombre,r.dir,r.uso,r.estrato,r.tel,r.atraso,r.edad.lab,r.deuda,r.periodo,r.total,r.fpago,S.resp[r.ciclo]||'']));
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(det,{cellDates:true}),'Morosos');
+  XLSX.writeFile(wb,`Informe_Cartera_${corte.value}.xlsx`);
+};
+$('#bPrint').onclick=()=>{$$('.view').forEach(v=>v.classList.remove('hidden'));setTimeout(()=>{Object.values(CH).forEach(c=>c.resize());window.print();showView(cur)},300)};
+
+/* ===================== navegación / tema ===================== */
+let cur='resumen';
+function showView(v){cur=v;$$('.view').forEach(x=>x.classList.toggle('hidden',x.id!=='v-'+v));$$('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));Object.values(CH).forEach(c=>c.resize())}
+$$('#tabs button').forEach(b=>b.onclick=()=>showView(b.dataset.v));
+const th=LS.get('cart_theme',null);if(th)document.documentElement.dataset.theme=th;
+$('#bTheme').onclick=()=>{const d=dark();document.documentElement.dataset.theme=d?'light':'dark';LS.set('cart_theme',document.documentElement.dataset.theme);if(S.rows.length)renderAll()};
+</script>
+</body>
+</html>
